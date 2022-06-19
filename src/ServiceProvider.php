@@ -8,9 +8,9 @@ class ServiceProvider extends \Illuminate\Support\ServiceProvider
 
     public function boot()
     {
-        $this->publishes([
-            self::CONFIG_PATH => config_path('laravel-model-utils.php'),
-        ], 'config');
+//        $this->publishes([
+//            self::CONFIG_PATH => config_path('laravel-model-utils.php'),
+//        ], 'config');
     }
 
     public function register()
