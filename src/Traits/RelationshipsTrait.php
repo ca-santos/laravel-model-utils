@@ -6,6 +6,7 @@ use ErrorException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
@@ -36,10 +37,11 @@ trait RelationshipsTrait
 
                 /** @var BelongsTo $return */
                 $return = $method->invoke($model);
-                $relationType = (new ReflectionClass($return))->getShortName();
+                $relationType = (new ReflectionClass($return))->getName();
 
                 $foreignKey = $return->getRelated()->getForeignKey();
-                if($relationType === 'BelongTo'){
+
+                if ($relationType === BelongsTo::class) {
                     $foreignKey = $return->getForeignKeyName();
                 }
 
@@ -56,11 +58,23 @@ trait RelationshipsTrait
                 $relationships[$method->getName()] = [
                     'name' => $method->getName(),
                     'type' => (new ReflectionClass($return))->getShortName(),
-                    'model' => (new ReflectionClass($return->getRelated()))->getName(),
+                    'model' => ($getModel = (new ReflectionClass($return->getRelated())))->getName(),
                     'table' => $return->getRelated()->getTable(),
                     'primary' => $return->getRelated()->getKeyName(),
                     'foreign_key' => $foreignKey,
-                    'pivot' => $pivot
+                    'pivot' => $pivot,
+                    'computed' => collect($getModel->getMethods())->flatMap(function (ReflectionMethod $m) {
+                        if (
+                            Str::startsWith($name = $m->getName(), 'get') &&
+                            Str::endsWith($name, 'Attribute') &&
+                            $name !== 'getAttribute'
+                        ) {
+                            return [
+                                Str::snake(Str::substrReplace(Str::substrReplace($name, '', 0, 3), '', -9)) => $name
+                            ];
+                        }
+                        return null;
+                    })->whereNotNull()->toArray()
                 ];
 
             }
