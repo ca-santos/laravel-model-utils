@@ -5,6 +5,7 @@ namespace CaueSantos\LaravelModelUtils\Traits;
 use ErrorException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 use ReflectionClass;
@@ -27,22 +28,25 @@ trait RelationshipsTrait
 
         foreach ((new ReflectionClass($model))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
 
-            if (($method->class != get_class($model) ||
-                !empty($method->getParameters()) ||
+            if ((!empty($method->getParameters()) ||
                 $method->getName() == __FUNCTION__)) {
                 continue;
             }
 
-            if ($method->hasReturnType() && str_contains($method->getReturnType()->getName(), 'Illuminate\\Database\\Eloquent\\Relations')) {
+            if ($method->hasReturnType() && is_subclass_of($method->getReturnType()->getName(), \Illuminate\Database\Eloquent\Relations\Relation::class)) {
 
-                /** @var BelongsTo $return */
+                /** @var BelongsTo|HasOne $return */
                 $return = $method->invoke($model);
                 $relationType = (new ReflectionClass($return))->getName();
 
                 $foreignKey = $return->getRelated()->getForeignKey();
 
-                if ($relationType === BelongsTo::class) {
+                if (is_subclass_of($relationType, BelongsTo::class)) {
                     $foreignKey = $return->getForeignKeyName();
+                }
+
+                if (is_subclass_of($relationType, HasOne::class)) {
+                    $foreignKey = $return->getLocalKeyName();
                 }
 
                 try {
@@ -96,7 +100,6 @@ trait RelationshipsTrait
         $result = [];
 
         $model = $this;
-
         foreach ($relationsToLook as $relationToLook) {
 
             if (isset($model->relationships()[$relationToLook])) {
